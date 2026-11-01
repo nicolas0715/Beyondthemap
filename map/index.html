@@ -121,36 +121,50 @@
 
     </script>
     <script>
+
     // Fotografías que queremos incorporar al mapa
     const photos = [
         "Images/DJI_0283.JPG",
     ];
 
-    // Leer coordenadas GPS y crear los marcadores
+    // Leer coordenadas GPS y crear marcadores
     async function loadPhotosOnMap() {
+
+        console.log("Iniciando carga de fotografías...");
 
         for (const photo of photos) {
 
             try {
-                // Descargar la fotografía
+
+                // Descargar fotografía
                 const response = await fetch(photo);
 
                 if (!response.ok) {
-                    throw new Error("No se pudo cargar " + photo);
+                    throw new Error(
+                        "Error descargando imagen: " + photo
+                    );
                 }
 
                 const buffer = await response.arrayBuffer();
 
-                // Leer metadatos GPS
+                console.log("Imagen descargada:", photo);
+
+                // Leer metadatos EXIF
                 const gps = await exifr.gps(buffer);
 
-                // Comprobar si tiene coordenadas
+                console.log("Datos GPS:", gps);
+
+                // Comprobar coordenadas
                 if (
                     !gps ||
                     gps.latitude == null ||
                     gps.longitude == null
                 ) {
-                    console.log("Sin GPS:", photo);
+                    console.warn(
+                        "La fotografía no tiene GPS:",
+                        photo
+                    );
+
                     continue;
                 }
 
@@ -160,9 +174,10 @@
                     gps.longitude
                 ]).addTo(map);
 
-                // Crear ventana con fotografía
+                // Ventana emergente
                 marker.bindPopup(`
                     <div style="width:220px">
+
                         <img
                             src="${photo}"
                             style="
@@ -171,23 +186,32 @@
                                 display:block;
                             "
                         >
+
+                        <p style="margin-top:8px">
+                            ${photo.split("/").pop()}
+                        </p>
+
                     </div>
                 `);
 
                 console.log(
-                    "Fotografía agregada:",
-                    photo,
+                    "Marcador creado:",
                     gps.latitude,
                     gps.longitude
                 );
 
             } catch (error) {
-                console.error(error);
+
+                console.error(
+                    "Error procesando:",
+                    photo,
+                    error
+                );
+
             }
         }
     }
 
-    // Ejecutar
     loadPhotosOnMap();
 
 </script>
