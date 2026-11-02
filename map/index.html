@@ -30,15 +30,18 @@
 
 </head>    
 <body>    
-    <div id="map"></div>    <!-- Leaflet JS -->    
+    <div id="map"></div>    
+
+<!-- Leaflet JS -->    
 <script src="https://unpkg.com"></script>    
-<!-- Exifr JS -->    
-<script src="https://jsdelivr.net"></script>    
+
+<!-- CDN CORREGIDO DE EXIFR: Usamos la versión completa compatible con navegadores -->    
+<script src="https://unpkg.com"></script>    
 
 <script>    
     // Inicializar mapa    
     const map = L.map("map", {    
-        center:,    
+        center: [20, 0],    
         zoom: 2,    
         minZoom: 2,    
         maxZoom: 10,    
@@ -83,7 +86,7 @@
 </script>    
 
 <script>    
-    // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML)    
+    // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML o usa rutas relativas correctas)    
     const photos = [    
         "DJI_0990.JPG",    
     ];    
@@ -91,6 +94,13 @@
     // Leer GPS y crear marcadores    
     async function loadPhotosOnMap() {    
         console.log("Iniciando carga de fotografías...");    
+
+        // Verificación de seguridad por si el script externo tarda un milisegundo extra en cargar
+        if (typeof exifr === 'undefined') {
+            console.error("La librería exifr no se cargó a tiempo. Reintentando en 1 segundo...");
+            setTimeout(loadPhotosOnMap, 1000);
+            return;
+        }
 
         for (const photo of photos) {    
             try {    
@@ -100,33 +110,33 @@
                 }    
 
                 const buffer = await response.arrayBuffer();    
-                console.log("Imagen descargada:", photo);    
+                console.log("Imagen descargada con éxito:", photo);    
 
-                // NUEVA CONFIGURACIÓN: Forzamos la lectura de EXIF, XMP y combinamos resultados
+                // Analizar el buffer buscando tanto EXIF como bloques de datos DJI XMP
                 const metadata = await exifr.parse(buffer, { 
                     gps: true,
                     xmp: true,
                     mergeOutput: true 
                 });    
-                console.log("Metadatos completos extraídos:", metadata);    
+                console.log("Metadatos crudos devueltos por exifr:", metadata);    
 
                 let latitude = null;
                 let longitude = null;
 
-                // 1. Intentar obtener coordenadas del bloque GPS Estándar
+                // 1. Intentar bloque GPS estándar
                 if (metadata && metadata.latitude != null && metadata.longitude != null) {
                     latitude = metadata.latitude;
                     longitude = metadata.longitude;
                 } 
-                // 2. Si falla, intentar extraer del bloque XMP específico de DJI
+                // 2. Intentar etiquetas nativas XMP de DJI si la cabecera estándar falló
                 else if (metadata && metadata['drone-dji:GpsLatitude'] != null) {
                     latitude = parseFloat(metadata['drone-dji:GpsLatitude']);
                     longitude = parseFloat(metadata['drone-dji:GpsLongitude']);
-                    console.log("Coordenadas obtenidas con éxito desde etiquetas XMP de DJI.");
+                    console.log("Coordenadas DJI encontradas con éxito en bloque XMP extendido.");
                 }
 
                 if (latitude == null || longitude == null) {    
-                    console.warn("La fotografía no contiene datos GPS válidos en EXIF ni XMP:", photo);    
+                    console.warn("La fotografía DJI no contiene marcas de geolocalización válidas:", photo);    
                     continue;    
                 }    
 
@@ -151,7 +161,10 @@
         }    
     }    
 
-    loadPhotosOnMap();    
+    // Esperar a que toda la ventana y scripts externos estén listos antes de ejecutar la telemetría
+    window.addEventListener('load', () => {
+        loadPhotosOnMap();    
+    });
 </script>
 
 <div id="debug-console" style="position:fixed;bottom:0;left:0;width:100%;height:30%;background:black;color:white;font-family:monospace;font-size:12px;overflow-y:auto;z-index:9999;padding:10px;box-sizing:border-box;"></div>  
