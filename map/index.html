@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">    
     <title>World Map</title>    
     <!-- Leaflet CSS -->    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />    <style>    
+    <link rel="stylesheet" href="https://unpkg.com" />    <style>    
     * {    
         margin: 0;    
         padding: 0;    
@@ -31,14 +31,14 @@
 </head>    
 <body>    
     <div id="map"></div>    <!-- Leaflet JS -->    
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>    
+<script src="https://unpkg.com"></script>    
 <!-- Exifr JS -->    
-<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>    
+<script src="https://jsdelivr.net"></script>    
 
 <script>    
     // Inicializar mapa    
     const map = L.map("map", {    
-        center: [20, 0],    
+        center:,    
         zoom: 2,    
         minZoom: 2,    
         maxZoom: 10,    
@@ -55,7 +55,7 @@
     };    
 
     // Cargar fronteras mundiales    
-    fetch("https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson")    
+    fetch("https://githubusercontent.com")    
     .then(response => {    
         if (!response.ok) throw new Error("No se pudieron cargar los países");    
         return response.json();    
@@ -102,17 +102,36 @@
                 const buffer = await response.arrayBuffer();    
                 console.log("Imagen descargada:", photo);    
 
-                // Leer metadatos EXIF usando exifr.parse de forma más robusta para GPS  
-                const gps = await exifr.parse(buffer, { gps: true });    
-                console.log("Datos GPS extraídos:", gps);    
+                // NUEVA CONFIGURACIÓN: Forzamos la lectura de EXIF, XMP y combinamos resultados
+                const metadata = await exifr.parse(buffer, { 
+                    gps: true,
+                    xmp: true,
+                    mergeOutput: true 
+                });    
+                console.log("Metadatos completos extraídos:", metadata);    
 
-                if (!gps || gps.latitude == null || gps.longitude == null) {    
-                    console.warn("La fotografía no contiene datos GPS válidos:", photo);    
+                let latitude = null;
+                let longitude = null;
+
+                // 1. Intentar obtener coordenadas del bloque GPS Estándar
+                if (metadata && metadata.latitude != null && metadata.longitude != null) {
+                    latitude = metadata.latitude;
+                    longitude = metadata.longitude;
+                } 
+                // 2. Si falla, intentar extraer del bloque XMP específico de DJI
+                else if (metadata && metadata['drone-dji:GpsLatitude'] != null) {
+                    latitude = parseFloat(metadata['drone-dji:GpsLatitude']);
+                    longitude = parseFloat(metadata['drone-dji:GpsLongitude']);
+                    console.log("Coordenadas obtenidas con éxito desde etiquetas XMP de DJI.");
+                }
+
+                if (latitude == null || longitude == null) {    
+                    console.warn("La fotografía no contiene datos GPS válidos en EXIF ni XMP:", photo);    
                     continue;    
                 }    
 
                 // Crear marcador en el mapa    
-                const marker = L.marker([gps.latitude, gps.longitude]).addTo(map);    
+                const marker = L.marker([latitude, longitude]).addTo(map);    
 
                 // Ventana emergente con la imagen    
                 marker.bindPopup(`    
@@ -124,7 +143,7 @@
                     </div>    
                 `);    
 
-                console.log("Marcador creado exitosamente en:", gps.latitude, gps.longitude);    
+                console.log("Marcador creado exitosamente en:", latitude, longitude);    
 
             } catch (error) {    
                 console.error("Error procesando la foto:", photo, error);    
