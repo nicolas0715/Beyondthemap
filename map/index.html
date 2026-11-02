@@ -1,205 +1,142 @@
-<!DOCTYPE html>  <html lang="es">  
+<!DOCTYPE html>  
+<html lang="es">  
 <head>  
     <meta charset="UTF-8">  
     <meta name="viewport" content="width=device-width, initial-scale=1.0">  
-    <title>World Map</title>  <!-- Leaflet -->  
-<link  
-    rel="stylesheet"  
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"  
-/>  
+    <title>World Map</title>  
+    <!-- Leaflet CSS -->  
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />  
 
-<style>  
-    * {  
-        margin: 0;  
-        padding: 0;  
-        box-sizing: border-box;  
-    }  
-
-    html, body {  
-        width: 100%;  
-        height: 100%;  
-        overflow: hidden;  
-    }  
-
-    #map {  
-        width: 100%;  
-        height: 100vh;  
-        background: #a9d6ed;  
-    }  
-
-    .leaflet-container {  
-        background: #a9d6ed;  
-    }  
-</style>
-
-</head>  <body>  <div id="map"></div>  
-
-<!-- Leaflet -->  
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  
-
-<!-- Exifr -->  
-<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>  
-
-<script>  
-
-    // Inicializar mapa  
-    const map = L.map("map", {  
-        center: [20, 0],  
-        zoom: 2,  
-        minZoom: 2,  
-        maxZoom: 10,  
-        worldCopyJump: true,  
-        zoomControl: true  
-    });  
-
-    // Estilo de países  
-    const countryStyle = {  
-        fillColor: "#f4f5f5",  
-        fillOpacity: 1,  
-        color: "#a0aab0",  
-        weight: 0.8  
-    };  
-
-    // Cargar fronteras mundiales  
-    fetch(  
-        "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"  
-    )  
-    .then(response => {  
-        if (!response.ok) {  
-            throw new Error("No se pudieron cargar los países");  
+    <style>  
+        * {  
+            margin: 0;  
+            padding: 0;  
+            box-sizing: border-box;  
         }  
-        return response.json();  
-    })  
-    .then(data => {  
 
-        const countries = L.geoJSON(data, {  
+        html, body {  
+            width: 100%;  
+            height: 100%;  
+            overflow: hidden;  
+        }  
 
-            style: countryStyle,  
+        #map {  
+            width: 100%;  
+            height: 100vh;  
+            background: #a9d6ed;  
+        }  
 
-            onEachFeature: function(feature, layer) {  
+        .leaflet-container {  
+            background: #a9d6ed;  
+        }  
+    </style>
+</head>  
+<body>  
+    <div id="map"></div>  
 
-                const name =  
-                    feature.properties.ADMIN ||  
-                    feature.properties.name ||  
-                    "País desconocido";  
+    <!-- Leaflet JS -->  
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  
+    <!-- Exifr JS -->  
+    <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>  
 
-                layer.bindPopup(  
-                    "<strong>" + name + "</strong>"  
-                );  
+    <script>  
+        // Inicializar mapa  
+        const map = L.map("map", {  
+            center: [20, 0],  
+            zoom: 2,  
+            minZoom: 2,  
+            maxZoom: 10,  
+            worldCopyJump: true,  
+            zoomControl: true  
+        });  
 
-                layer.on("mouseover", function() {  
-                    layer.setStyle({  
-                        fillColor: "#d6e8f2",  
-                        weight: 1.5  
+        // Estilo de países  
+        const countryStyle = {  
+            fillColor: "#f4f5f5",  
+            fillOpacity: 1,  
+            color: "#a0aab0",  
+            weight: 0.8  
+        };  
+
+        // Cargar fronteras mundiales  
+        fetch("https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson")  
+        .then(response => {  
+            if (!response.ok) throw new Error("No se pudieron cargar los países");  
+            return response.json();  
+        })  
+        .then(data => {  
+            const countries = L.geoJSON(data, {  
+                style: countryStyle,  
+                onEachFeature: function(feature, layer) {  
+                    const name = feature.properties.ADMIN || feature.properties.name || "País desconocido";  
+                    layer.bindPopup("<strong>" + name + "</strong>");  
+                    layer.on("mouseover", function() {  
+                        layer.setStyle({ fillColor: "#d6e8f2", weight: 1.5 });  
                     });  
-                });  
-
-                layer.on("mouseout", function() {  
-                    countries.resetStyle(layer);  
-                });  
-            }  
-
-        }).addTo(map);  
-
-        map.fitBounds(countries.getBounds());  
-
-    })  
-    .catch(error => {  
-        console.error("Error cargando el mapa:", error);  
-    });  
-
-</script>  
-
-<script>  
-
-    // Fotografías  
-    const photos = [  
-        "DJI_0993.JPG",  
-    ];  
-
-    // Leer GPS y crear marcadores  
-    async function loadPhotosOnMap() {  
-
-        console.log("Iniciando carga de fotografías...");  
-
-        for (const photo of photos) {  
-
-            try {  
-
-                const response = await fetch(photo);  
-
-                if (!response.ok) {  
-                    throw new Error(  
-                        "Error descargando imagen: " + photo  
-                    );  
+                    layer.on("mouseout", function() {  
+                        countries.resetStyle(layer);  
+                    });  
                 }  
+            }).addTo(map);  
 
-                const buffer = await response.arrayBuffer();  
+            map.fitBounds(countries.getBounds());  
+        })  
+        .catch(error => {  
+            console.error("Error cargando el mapa:", error);  
+        });  
+    </script>  
 
-                console.log("Imagen descargada:", photo);  
+    <script>  
+        // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML)  
+        const photos = [  
+            "DJI_0993.JPG",  
+        ];  
 
-                // Leer metadatos EXIF  
-                const gps = await exifr.gps(buffer);  
+        // Leer GPS y crear marcadores  
+        async function loadPhotosOnMap() {  
+            console.log("Iniciando carga de fotografías...");  
 
-                console.log("Datos GPS:", gps);  
+            for (const photo of photos) {  
+                try {  
+                    const response = await fetch(photo);  
+                    if (!response.ok) {  
+                        throw new Error("Error descargando imagen (verifica que el archivo exista y uses un servidor local): " + photo);  
+                    }  
 
-                if (  
-                    !gps ||  
-                    gps.latitude == null ||  
-                    gps.longitude == null  
-                ) {  
-                    console.warn(  
-                        "La fotografía no tiene GPS:",  
-                        photo  
-                    );  
-                    continue;  
+                    const buffer = await response.arrayBuffer();  
+                    console.log("Imagen descargada:", photo);  
+
+                    // Leer metadatos EXIF usando exifr.parse de forma más robusta para GPS
+                    const gps = await exifr.parse(buffer, { gps: true });  
+                    console.log("Datos GPS extraídos:", gps);  
+
+                    if (!gps || gps.latitude == null || gps.longitude == null) {  
+                        console.warn("La fotografía no contiene datos GPS válidos:", photo);  
+                        continue;  
+                    }  
+
+                    // Crear marcador en el mapa  
+                    const marker = L.marker([gps.latitude, gps.longitude]).addTo(map);  
+
+                    // Ventana emergente con la imagen  
+                    marker.bindPopup(`  
+                        <div style="width:220px">  
+                            <img src="${photo}" style="width:100%; border-radius:8px; display:block;">  
+                            <p style="margin-top:8px; font-family:sans-serif; font-size:12px;">  
+                                ${photo.split("/").pop()}  
+                            </p>  
+                        </div>  
+                    `);  
+
+                    console.log("Marcador creado exitosamente en:", gps.latitude, gps.longitude);  
+
+                } catch (error) {  
+                    console.error("Error procesando la foto:", photo, error);  
                 }  
-
-                // Crear marcador  
-                const marker = L.marker([  
-                    gps.latitude,  
-                    gps.longitude  
-                ]).addTo(map);  
-
-                // Ventana emergente  
-                marker.bindPopup(`  
-                    <div style="width:220px">  
-                        <img  
-                            src="${photo}"  
-                            style="  
-                                width:100%;  
-                                border-radius:8px;  
-                                display:block;  
-                            "  
-                        >  
-
-                        <p style="margin-top:8px">  
-                            ${photo.split("/").pop()}  
-                        </p>  
-                    </div>  
-                `);  
-
-                console.log(  
-                    "Marcador creado:",  
-                    gps.latitude,  
-                    gps.longitude  
-                );  
-
-            } catch (error) {  
-
-                console.error(  
-                    "Error procesando:",  
-                    photo,  
-                    error  
-                );  
-
             }  
         }  
-    }  
 
-    loadPhotosOnMap();  
-
-</script>
-
+        loadPhotosOnMap();  
+    </script>  
 </body>  
 </html>
