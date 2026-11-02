@@ -1,262 +1,167 @@
-<!DOCTYPE html>  
-<html lang="es">  
-<head>  
-    <meta charset="UTF-8">  
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
-    <title>World Map</title>  
-    <!-- Leaflet CSS -->  
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />  
+<!DOCTYPE html>    <html lang="es">    
+<head>    
+    <meta charset="UTF-8">    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
+    <title>World Map</title>    
+    <!-- Leaflet CSS -->    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />    <style>    
+    * {    
+        margin: 0;    
+        padding: 0;    
+        box-sizing: border-box;    
+    }    
 
-    <style>  
-        * {  
-            margin: 0;  
-            padding: 0;  
-            box-sizing: border-box;  
-        }  
+    html, body {    
+        width: 100%;    
+        height: 100%;    
+        overflow: hidden;    
+    }    
 
-        html, body {  
-            width: 100%;  
-            height: 100%;  
-            overflow: hidden;  
-        }  
+    #map {    
+        width: 100%;    
+        height: 100vh;    
+        background: #a9d6ed;    
+    }    
 
-        #map {  
-            width: 100%;  
-            height: 100vh;  
-            background: #a9d6ed;  
-        }  
+    .leaflet-container {    
+        background: #a9d6ed;    
+    }    
+</style>
 
-        .leaflet-container {  
-            background: #a9d6ed;  
-        }  
-    </style>
-</head>  
-<body>  
-    <div id="map"></div>  
+</head>    
+<body>    
+    <div id="map"></div>    <!-- Leaflet JS -->    
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>    
+<!-- Exifr JS -->    
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>    
 
-    <!-- Leaflet JS -->  
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>  
-    <!-- Exifr JS -->  
-    <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>  
+<script>    
+    // Inicializar mapa    
+    const map = L.map("map", {    
+        center: [20, 0],    
+        zoom: 2,    
+        minZoom: 2,    
+        maxZoom: 10,    
+        worldCopyJump: true,    
+        zoomControl: true    
+    });    
 
-    <script>  
-        // Inicializar mapa  
-        const map = L.map("map", {  
-            center: [20, 0],  
-            zoom: 2,  
-            minZoom: 2,  
-            maxZoom: 10,  
-            worldCopyJump: true,  
-            zoomControl: true  
-        });  
+    // Estilo de países    
+    const countryStyle = {    
+        fillColor: "#f4f5f5",    
+        fillOpacity: 1,    
+        color: "#a0aab0",    
+        weight: 0.8    
+    };    
 
-        // Estilo de países  
-        const countryStyle = {  
-            fillColor: "#f4f5f5",  
-            fillOpacity: 1,  
-            color: "#a0aab0",  
-            weight: 0.8  
-        };  
+    // Cargar fronteras mundiales    
+    fetch("https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson")    
+    .then(response => {    
+        if (!response.ok) throw new Error("No se pudieron cargar los países");    
+        return response.json();    
+    })    
+    .then(data => {    
+        const countries = L.geoJSON(data, {    
+            style: countryStyle,    
+            onEachFeature: function(feature, layer) {    
+                const name = feature.properties.ADMIN || feature.properties.name || "País desconocido";    
+                layer.bindPopup("<strong>" + name + "</strong>");    
+                layer.on("mouseover", function() {    
+                    layer.setStyle({ fillColor: "#d6e8f2", weight: 1.5 });    
+                });    
+                layer.on("mouseout", function() {    
+                    countries.resetStyle(layer);    
+                });    
+            }    
+        }).addTo(map);    
 
-        // Cargar fronteras mundiales  
-        fetch("https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson")  
-        .then(response => {  
-            if (!response.ok) throw new Error("No se pudieron cargar los países");  
-            return response.json();  
-        })  
-        .then(data => {  
-            const countries = L.geoJSON(data, {  
-                style: countryStyle,  
-                onEachFeature: function(feature, layer) {  
-                    const name = feature.properties.ADMIN || feature.properties.name || "País desconocido";  
-                    layer.bindPopup("<strong>" + name + "</strong>");  
-                    layer.on("mouseover", function() {  
-                        layer.setStyle({ fillColor: "#d6e8f2", weight: 1.5 });  
-                    });  
-                    layer.on("mouseout", function() {  
-                        countries.resetStyle(layer);  
-                    });  
-                }  
-            }).addTo(map);  
+        map.fitBounds(countries.getBounds());    
+    })    
+    .catch(error => {    
+        console.error("Error cargando el mapa:", error);    
+    });    
+</script>    
 
-            map.fitBounds(countries.getBounds());  
-        })  
-        .catch(error => {  
-            console.error("Error cargando el mapa:", error);  
-        });  
-    </script>  
+<script>    
+    // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML)    
+    const photos = [    
+        "DJI_0993.JPG",    
+    ];    
 
-    <script>  
-        // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML)  
-        const photos = [  
-            "DJI_0993.JPG",  
-        ];  
+    // Leer GPS y crear marcadores    
+    async function loadPhotosOnMap() {    
+        console.log("Iniciando carga de fotografías...");    
 
-        // Leer GPS y crear marcadores  
-        async function loadPhotosOnMap() {  
-            console.log("Iniciando carga de fotografías...");  
+        for (const photo of photos) {    
+            try {    
+                const response = await fetch(photo);    
+                if (!response.ok) {    
+                    throw new Error("Error descargando imagen (verifica que el archivo exista y uses un servidor local): " + photo);    
+                }    
 
-            for (const photo of photos) {  
-                try {  
-                    const response = await fetch(photo);  
-                    if (!response.ok) {  
-                        throw new Error("Error descargando imagen (verifica que el archivo exista y uses un servidor local): " + photo);  
-                    }  
+                const buffer = await response.arrayBuffer();    
+                console.log("Imagen descargada:", photo);    
 
-                    const buffer = await response.arrayBuffer();  
-                    console.log("Imagen descargada:", photo);  
+                // Leer metadatos EXIF usando exifr.parse de forma más robusta para GPS  
+                const gps = await exifr.parse(buffer, { gps: true });    
+                console.log("Datos GPS extraídos:", gps);    
 
-                    // Leer metadatos EXIF usando exifr.parse de forma más robusta para GPS
-                    const gps = await exifr.parse(buffer, { gps: true });  
-                    console.log("Datos GPS extraídos:", gps);  
+                if (!gps || gps.latitude == null || gps.longitude == null) {    
+                    console.warn("La fotografía no contiene datos GPS válidos:", photo);    
+                    continue;    
+                }    
 
-                    if (!gps || gps.latitude == null || gps.longitude == null) {  
-                        console.warn("La fotografía no contiene datos GPS válidos:", photo);  
-                        continue;  
-                    }  
+                // Crear marcador en el mapa    
+                const marker = L.marker([gps.latitude, gps.longitude]).addTo(map);    
 
-                    // Crear marcador en el mapa  
-                    const marker = L.marker([gps.latitude, gps.longitude]).addTo(map);  
+                // Ventana emergente con la imagen    
+                marker.bindPopup(`    
+                    <div style="width:220px">    
+                        <img src="${photo}" style="width:100%; border-radius:8px; display:block;">    
+                        <p style="margin-top:8px; font-family:sans-serif; font-size:12px;">    
+                            ${photo.split("/").pop()}    
+                        </p>    
+                    </div>    
+                `);    
 
-                    // Ventana emergente con la imagen  
-                    marker.bindPopup(`  
-                        <div style="width:220px">  
-                            <img src="${photo}" style="width:100%; border-radius:8px; display:block;">  
-                            <p style="margin-top:8px; font-family:sans-serif; font-size:12px;">  
-                                ${photo.split("/").pop()}  
-                            </p>  
-                        </div>  
-                    `);  
+                console.log("Marcador creado exitosamente en:", gps.latitude, gps.longitude);    
 
-                    console.log("Marcador creado exitosamente en:", gps.latitude, gps.longitude);  
+            } catch (error) {    
+                console.error("Error procesando la foto:", photo, error);    
+            }    
+        }    
+    }    
 
-                } catch (error) {  
-                    console.error("Error procesando la foto:", photo, error);  
-                }  
-            }  
-        }  
-
-        loadPhotosOnMap();  
-    </script>  
-
-
-
-<script>
-    // Obtener el cuadro de depuración
-    const logDiv = document.getElementById('debug-console');
-
-    // Guardar las funciones originales
-    const originalLog = console.log;
-    const originalWarn = console.warn;
-    const originalError = console.error;
-
-    // Convertir cualquier tipo de dato a texto
-    function formatMessage(value) {
-
-        if (value instanceof Error) {
-            return value.stack || value.message;
-        }
-
-        if (value === null) {
-            return "null";
-        }
-
-        if (value === undefined) {
-            return "undefined";
-        }
-
-        if (typeof value === 'object') {
-            try {
-                return JSON.stringify(value, null, 2);
-            } catch (error) {
-                return String(value);
-            }
-        }
-
-        if (typeof value === 'function') {
-            return value.toString();
-        }
-
-        return String(value);
-    }
-
-    // Mostrar mensajes en pantalla
-    function appendLog(type, args) {
-
-        const message = Array.from(args)
-            .map(formatMessage)
-            .join(' ');
-
-        const line = document.createElement('div');
-
-        line.style.borderBottom = '1px solid #444';
-        line.style.padding = '4px 0';
-        line.style.whiteSpace = 'pre-wrap';
-        line.style.overflowWrap = 'anywhere';
-
-        const title = document.createElement('strong');
-        title.textContent = type.toUpperCase() + ': ';
-
-        const content = document.createElement('span');
-        content.textContent = message;
-
-        line.appendChild(title);
-        line.appendChild(content);
-
-        logDiv.appendChild(line);
-
-        // Desplazarse automáticamente al último mensaje
-        logDiv.scrollTop = logDiv.scrollHeight;
-    }
-
-    // Capturar console.log
-    console.log = function(...args) {
-        originalLog.apply(console, args);
-        appendLog('LOG', args);
-    };
-
-    // Capturar console.warn
-    console.warn = function(...args) {
-        originalWarn.apply(console, args);
-        appendLog('WARNING', args);
-    };
-
-    // Capturar console.error
-    console.error = function(...args) {
-        originalError.apply(console, args);
-        appendLog('ERROR', args);
-    };
-
-    // Capturar errores generales de JavaScript
-    window.onerror = function(msg, url, line, column, error) {
-
-        appendLog('JAVASCRIPT ERROR', [
-            msg,
-            'Archivo:', url,
-            'Línea:', line,
-            'Columna:', column,
-            error || ''
-        ]);
-
-    };
-
-    // Capturar errores de promesas
-    window.addEventListener('unhandledrejection', function(event) {
-
-        appendLog('PROMISE ERROR', [
-            'Error en promesa:',
-            event.reason
-        ]);
-
-    });
-
-    // Mensaje para confirmar que la consola funciona
-    console.log('Sistema de depuración iniciado correctamente.');
-
+    loadPhotosOnMap();    
 </script>
 
+<div id="debug-console" style="position:fixed;bottom:0;left:0;width:100%;height:30%;background:black;color:white;font-family:monospace;font-size:12px;overflow-y:auto;z-index:9999;padding:10px;box-sizing:border-box;"></div>  
+<script>  
+  const logDiv = document.getElementById('debug-console');  
+  const originalLog = console.log;  
+  const originalWarn = console.warn;  
+  const originalError = console.error;  function appendLog(type, message) {
+const msg = typeof message === 'object' ? JSON.stringify(message) : message;
+logDiv.innerHTML += <div><strong>${type.toUpperCase()}:</strong> ${msg}</div>;
+logDiv.scrollTop = logDiv.scrollHeight;
+}
 
-    
-    
-</body>  
+console.log = function(message) {
+originalLog.apply(console, arguments);
+appendLog('log', message);
+};
+console.warn = function(message) {
+originalWarn.apply(console, arguments);
+appendLog('warn', message);
+};
+console.error = function(message) {
+originalError.apply(console, arguments);
+appendLog('error', message);
+};
+window.onerror = function(msg, url, line) {
+appendLog('error', ${msg} at ${line});
+};
+</script>
+
+</body>    
 </html>
