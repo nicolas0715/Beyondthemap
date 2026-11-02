@@ -41,14 +41,14 @@
 
     <div id="map"></div>
 
-    <!-- Leaflet JavaScript -->
+    <!-- Leaflet -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/exifr/dist/lite.umd.js"></script>
-    
-<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js">
-  
-</script>
+
+    <!-- Exifr -->
+    <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.js"></script>
+
     <script>
+
         // Inicializar mapa
         const map = L.map("map", {
             center: [20, 0],
@@ -59,7 +59,7 @@
             zoomControl: true
         });
 
-        // Estilo de los países
+        // Estilo de países
         const countryStyle = {
             fillColor: "#f4f5f5",
             fillOpacity: 1,
@@ -90,12 +90,10 @@
                         feature.properties.name ||
                         "País desconocido";
 
-                    // Mostrar nombre al hacer clic
                     layer.bindPopup(
                         "<strong>" + name + "</strong>"
                     );
 
-                    // Efecto al pasar el cursor
                     layer.on("mouseover", function() {
                         layer.setStyle({
                             fillColor: "#d6e8f2",
@@ -110,117 +108,105 @@
 
             }).addTo(map);
 
-            // Ajustar el mapa al mundo completo
             map.fitBounds(countries.getBounds());
 
         })
         .catch(error => {
             console.error("Error cargando el mapa:", error);
-        }
-
+        });
 
     </script>
+
     <script>
 
-    // Fotografías que queremos incorporar al mapa
-    const photos = [
-        "../map/Images/DJI_0283.JPG",
-    ];
+        // Fotografías
+        const photos = [
+            "../map/Images/DJI_0283.JPG",
+        ];
 
-    // Leer coordenadas GPS y crear marcadores
-    async function loadPhotosOnMap() {
+        // Leer GPS y crear marcadores
+        async function loadPhotosOnMap() {
 
-        console.log("Iniciando carga de fotografías...");
+            console.log("Iniciando carga de fotografías...");
 
-        for (const photo of photos) {
+            for (const photo of photos) {
 
-            try {
+                try {
 
-                // Descargar fotografía
-                const response = await fetch(photo);
+                    const response = await fetch(photo);
 
-                if (!response.ok) {
-                    throw new Error(
-                        "Error descargando imagen: " + photo
+                    if (!response.ok) {
+                        throw new Error(
+                            "Error descargando imagen: " + photo
+                        );
+                    }
+
+                    const buffer = await response.arrayBuffer();
+
+                    console.log("Imagen descargada:", photo);
+
+                    // Leer metadatos EXIF
+                    const gps = await exifr.gps(buffer);
+
+                    console.log("Datos GPS:", gps);
+
+                    if (
+                        !gps ||
+                        gps.latitude == null ||
+                        gps.longitude == null
+                    ) {
+                        console.warn(
+                            "La fotografía no tiene GPS:",
+                            photo
+                        );
+                        continue;
+                    }
+
+                    // Crear marcador
+                    const marker = L.marker([
+                        gps.latitude,
+                        gps.longitude
+                    ]).addTo(map);
+
+                    // Ventana emergente
+                    marker.bindPopup(`
+                        <div style="width:220px">
+                            <img
+                                src="${photo}"
+                                style="
+                                    width:100%;
+                                    border-radius:8px;
+                                    display:block;
+                                "
+                            >
+
+                            <p style="margin-top:8px">
+                                ${photo.split("/").pop()}
+                            </p>
+                        </div>
+                    `);
+
+                    console.log(
+                        "Marcador creado:",
+                        gps.latitude,
+                        gps.longitude
                     );
-                }
 
-                const buffer = await response.arrayBuffer();
+                } catch (error) {
 
-                console.log("Imagen descargada:", photo);
-
-                // Leer metadatos EXIF
-                const gps = await exifr.gps(buffer);
-
-                console.log("Datos GPS:", gps);
-
-                // Comprobar coordenadas
-                if (
-                    !gps ||
-                    gps.latitude == null ||
-                    gps.longitude == null
-                ) {
-                    console.warn(
-                        "La fotografía no tiene GPS:",
-                        photo
+                    console.error(
+                        "Error procesando:",
+                        photo,
+                        error
                     );
 
-                    continue;
                 }
-
-                // Crear marcador
-                const marker = L.marker([
-                    gps.latitude,
-                    gps.longitude
-                ]).addTo(map);
-
-                // Ventana emergente
-                marker.bindPopup(`
-                    <div style="width:220px">
-
-                        <img
-                            src="${photo}"
-                            style="
-                                width:100%;
-                                border-radius:8px;
-                                display:block;
-                            "
-                        >
-
-                        <p style="margin-top:8px">
-                            ${photo.split("/").pop()}
-                        </p>
-
-                    </div>
-                `);
-
-                console.log(
-                    "Marcador creado:",
-                    gps.latitude,
-                    gps.longitude
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Error procesando:",
-                    photo,
-                    error
-                );
-
             }
         }
-    }
 
-    loadPhotosOnMap();
+        loadPhotosOnMap();
 
-</script>
+    </script>
 
 </body>
 </html>
-
-
-
-
-<!-- https://github.com/nicolas0715/Beyondthemap/blob/main/Images/01_foto.webp 
--->
