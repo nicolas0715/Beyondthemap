@@ -35,13 +35,13 @@
 <!-- Leaflet JS -->    
 <script src="https://unpkg.com"></script>    
 
-<!-- CDN CORREGIDO DE EXIFR: Usamos la versión completa compatible con navegadores -->    
-<script src="https://unpkg.com"></script>    
+<!-- NUEVA LIBRERÍA REEMPLAZO: ExifReader (Inmune a fallos de carga globales en GitHub) -->    
+<script src="https://jsdelivr.net"></script>
 
 <script>    
     // Inicializar mapa    
     const map = L.map("map", {    
-        center: [20, 0],    
+        center:,    
         zoom: 2,    
         minZoom: 2,    
         maxZoom: 10,    
@@ -86,7 +86,7 @@
 </script>    
 
 <script>    
-    // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML o usa rutas relativas correctas)    
+    // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML)    
     const photos = [    
         "DJI_0990.JPG",    
     ];    
@@ -95,9 +95,9 @@
     async function loadPhotosOnMap() {    
         console.log("Iniciando carga de fotografías...");    
 
-        // Verificación de seguridad por si el script externo tarda un milisegundo extra en cargar
-        if (typeof exifr === 'undefined') {
-            console.error("La librería exifr no se cargó a tiempo. Reintentando en 1 segundo...");
+        // Verificamos el nuevo objeto ExifReader
+        if (typeof ExifReader === 'undefined') {
+            console.error("La librería ExifReader no se cargó. Reintentando...");
             setTimeout(loadPhotosOnMap, 1000);
             return;
         }
@@ -106,37 +106,35 @@
             try {    
                 const response = await fetch(photo);    
                 if (!response.ok) {    
-                    throw new Error("Error descargando imagen (verifica que el archivo exista y uses un servidor local): " + photo);    
+                    throw new Error("Error descargando imagen (verifica que el archivo exista y uses un servidor local o GitHub): " + photo);    
                 }    
 
                 const buffer = await response.arrayBuffer();    
                 console.log("Imagen descargada con éxito:", photo);    
 
-                // Analizar el buffer buscando tanto EXIF como bloques de datos DJI XMP
-                const metadata = await exifr.parse(buffer, { 
-                    gps: true,
-                    xmp: true,
-                    mergeOutput: true 
-                });    
-                console.log("Metadatos crudos devueltos por exifr:", metadata);    
+                // ExifReader procesa directamente el buffer binario
+                const tags = ExifReader.load(buffer);
+                console.log("Metadatos procesados por ExifReader:", tags);    
 
                 let latitude = null;
                 let longitude = null;
 
-                // 1. Intentar bloque GPS estándar
-                if (metadata && metadata.latitude != null && metadata.longitude != null) {
-                    latitude = metadata.latitude;
-                    longitude = metadata.longitude;
+                // 1. Intentar obtener coordenadas del formato estandarizado que calcula la librería
+                if (tags['GPSLatitude'] && tags['GPSLongitude']) {
+                    latitude = tags['GPSLatitude'].description;
+                    longitude = tags['GPSLongitude'].description;
                 } 
-                // 2. Intentar etiquetas nativas XMP de DJI si la cabecera estándar falló
-                else if (metadata && metadata['drone-dji:GpsLatitude'] != null) {
-                    latitude = parseFloat(metadata['drone-dji:GpsLatitude']);
-                    longitude = parseFloat(metadata['drone-dji:GpsLongitude']);
-                    console.log("Coordenadas DJI encontradas con éxito en bloque XMP extendido.");
+                // 2. Si es nulo, raspar de forma agresiva las etiquetas XMP nativas del DJI Mini 3
+                else if (tags['drone-dji:GpsLatitude'] || tags['GpsLatitude']) {
+                    const rawLat = tags['drone-dji:GpsLatitude'] || tags['GpsLatitude'];
+                    const rawLon = tags['drone-dji:GpsLongitude'] || tags['GpsLongitude'];
+                    latitude = parseFloat(rawLat.description || rawLat);
+                    longitude = parseFloat(rawLon.description || rawLon);
+                    console.log("Coordenadas recuperadas desde el perfil de vuelo XMP de DJI.");
                 }
 
                 if (latitude == null || longitude == null) {    
-                    console.warn("La fotografía DJI no contiene marcas de geolocalización válidas:", photo);    
+                    console.warn("La fotografía DJI Mini 3 no contiene coordenadas válidas en sus bloques:", photo);    
                     continue;    
                 }    
 
@@ -153,7 +151,7 @@
                     </div>    
                 `);    
 
-                console.log("Marcador creado exitosamente en:", latitude, longitude);    
+                console.log("¡Marcador creado exitosamente en!", latitude, longitude);    
 
             } catch (error) {    
                 console.error("Error procesando la foto:", photo, error);    
@@ -161,8 +159,8 @@
         }    
     }    
 
-    // Esperar a que toda la ventana y scripts externos estén listos antes de ejecutar la telemetría
-    window.addEventListener('load', () => {
+    // Ejecutar cuando el DOM esté listo
+    window.addEventListener('DOMContentLoaded', () => {
         loadPhotosOnMap();    
     });
 </script>
