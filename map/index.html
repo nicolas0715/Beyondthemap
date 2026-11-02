@@ -138,5 +138,41 @@
 
         loadPhotosOnMap();  
     </script>  
+
+
+
+<div id="debug-console" style="position:fixed;bottom:0;left:0;width:100%;height:30%;background:black;color:white;font-family:monospace;font-size:12px;overflow-y:auto;z-index:9999;padding:10px;box-sizing:border-box;"></div>
+<script>
+  const logDiv = document.getElementById('debug-console');
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+
+  function appendLog(type, message) {
+    const msg = typeof message === 'object' ? JSON.stringify(message) : message;
+    logDiv.innerHTML += `<div><strong>${type.toUpperCase()}:</strong> ${msg}</div>`;
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  console.log = function(message) {
+    originalLog.apply(console, arguments);
+    appendLog('log', message);
+  };
+  console.warn = function(message) {
+    originalWarn.apply(console, arguments);
+    appendLog('warn', message);
+  };
+  console.error = function(message) {
+    originalError.apply(console, arguments);
+    appendLog('error', message);
+  };
+  window.onerror = function(msg, url, line) {
+    appendLog('error', `${msg} at ${line}`);
+  };
+</script>
+
+
+    
+    
 </body>  
 </html>
