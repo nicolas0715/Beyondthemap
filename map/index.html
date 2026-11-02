@@ -136,31 +136,94 @@
 </script>
 
 <div id="debug-console" style="position:fixed;bottom:0;left:0;width:100%;height:30%;background:black;color:white;font-family:monospace;font-size:12px;overflow-y:auto;z-index:9999;padding:10px;box-sizing:border-box;"></div>  
-<script>  
-  const logDiv = document.getElementById('debug-console');  
-  const originalLog = console.log;  
-  const originalWarn = console.warn;  
-  const originalError = console.error;  function appendLog(type, message) {
-const msg = typeof message === 'object' ? JSON.stringify(message) : message;
-logDiv.innerHTML += <div><strong>${type.toUpperCase()}:</strong> ${msg}</div>;
-logDiv.scrollTop = logDiv.scrollHeight;
-}
+<script>
+    const logDiv = document.getElementById('debug-console');
 
-console.log = function(message) {
-originalLog.apply(console, arguments);
-appendLog('log', message);
-};
-console.warn = function(message) {
-originalWarn.apply(console, arguments);
-appendLog('warn', message);
-};
-console.error = function(message) {
-originalError.apply(console, arguments);
-appendLog('error', message);
-};
-window.onerror = function(msg, url, line) {
-appendLog('error', ${msg} at ${line});
-};
+    const originalLog = console.log;
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    function formatMessage(value) {
+        if (value instanceof Error) {
+            return value.stack || value.message;
+        }
+
+        if (value === null) return "null";
+        if (value === undefined) return "undefined";
+
+        if (typeof value === 'object') {
+            try {
+                return JSON.stringify(value, null, 2);
+            } catch (error) {
+                return String(value);
+            }
+        }
+
+        if (typeof value === 'function') {
+            return value.toString();
+        }
+
+        return String(value);
+    }
+
+    function appendLog(type, args) {
+        const message = Array.from(args)
+            .map(formatMessage)
+            .join(' ');
+
+        const line = document.createElement('div');
+
+        line.style.borderBottom = '1px solid #444';
+        line.style.padding = '4px 0';
+        line.style.whiteSpace = 'pre-wrap';
+        line.style.overflowWrap = 'anywhere';
+
+        const title = document.createElement('strong');
+        title.textContent = type.toUpperCase() + ': ';
+
+        const content = document.createElement('span');
+        content.textContent = message;
+
+        line.appendChild(title);
+        line.appendChild(content);
+
+        logDiv.appendChild(line);
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    console.log = function(...args) {
+        originalLog.apply(console, args);
+        appendLog('LOG', args);
+    };
+
+    console.warn = function(...args) {
+        originalWarn.apply(console, args);
+        appendLog('WARNING', args);
+    };
+
+    console.error = function(...args) {
+        originalError.apply(console, args);
+        appendLog('ERROR', args);
+    };
+
+    window.onerror = function(msg, url, line, column, error) {
+        appendLog('JAVASCRIPT ERROR', [
+            msg,
+            'Archivo:', url,
+            'Línea:', line,
+            'Columna:', column,
+            error || ''
+        ]);
+    };
+
+    window.addEventListener('unhandledrejection', function(event) {
+        appendLog('PROMISE ERROR', [
+            'Error en promesa:',
+            event.reason
+        ]);
+    });
+
+    console.log('Sistema de depuración iniciado correctamente.');
 </script>
 
 </body>    
