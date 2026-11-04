@@ -133,6 +133,97 @@
 
     console.log('Leaflet cargado correctamente:', window.L.version);
 
+    // =====================================
+// CONVERSIÓN DE COORDENADAS EXIF
+// =====================================
+
+function rationalToNumber(value) {
+
+    if (typeof value === 'number') {
+        return value;
+    }
+
+    if (Array.isArray(value)) {
+        return Number(value[0]) / Number(value[1]);
+    }
+
+    if (typeof value === 'object' && value !== null) {
+
+        if ('numerator' in value && 'denominator' in value) {
+            return value.numerator / value.denominator;
+        }
+    }
+
+    return Number(value);
+}
+
+
+function getGPSCoordinate(tag, reference) {
+
+    if (!tag) return null;
+
+    let decimal = null;
+
+    // Intentar leer los valores originales EXIF
+
+    if (Array.isArray(tag.value) && tag.value.length >= 3) {
+
+        const degrees = rationalToNumber(tag.value[0]);
+        const minutes = rationalToNumber(tag.value[1]);
+        const seconds = rationalToNumber(tag.value[2]);
+
+        if (
+            Number.isFinite(degrees) &&
+            Number.isFinite(minutes) &&
+            Number.isFinite(seconds)
+        ) {
+
+            decimal = Math.abs(degrees) +
+                      minutes / 60 +
+                      seconds / 3600;
+        }
+    }
+
+    // Si no hay valores originales, leer la descripción
+
+    if (decimal === null) {
+
+        const description = String(
+            tag.description || tag.value || ''
+        );
+
+        const numbers = description.match(/-?\d+(?:\.\d+)?/g);
+
+        if (!numbers) return null;
+
+        if (numbers.length >= 3) {
+
+            decimal = Math.abs(Number(numbers[0])) +
+                      Number(numbers[1]) / 60 +
+                      Number(numbers[2]) / 3600;
+
+        } else {
+
+            decimal = Number(numbers[0]);
+        }
+    }
+
+    if (!Number.isFinite(decimal)) return null;
+
+    // Aplicar orientación geográfica
+
+    const direction = String(
+        reference?.description || reference?.value || ''
+    ).trim().toUpperCase();
+
+    if (direction.startsWith('S') || direction.startsWith('W')) {
+        decimal = -decimal;
+    }
+
+    return decimal;
+}
+
+    
     if (typeof window.ExifReader === 'undefined') {
         console.error('ERROR: ExifReader no se pudo cargar.');
         throw new Error('ExifReader no está definido.');
@@ -249,67 +340,86 @@
 
                 console.log('Imagen descargada:', photo);
 
-                const tags = ExifReader.load(buffer);
 
-                console.log('Metadatos EXIF:', tags);
 
-                let latitude = null;
-                let longitude = null;
+const tags = ExifReader.load(buffer);
 
-                // GPS estándar
+console.log('Metadatos EXIF:', tags);
 
-                if (tags.GPSLatitude && tags.GPSLongitude) {
+let latitude = null;
+let longitude = null;
 
-                    latitude = Number(tags.GPSLatitude.description);
-                    longitude = Number(tags.GPSLongitude.description);
+// GPS EXIF estándar
 
-                }
+if (tags.GPSLatitude && tags.GPSLongitude) {
 
-                // GPS XMP de DJI
+    latitude = getGPSCoordinate(
+        tags.GPSLatitude,
+        tags.GPSLatitudeRef
+    );
 
-                else if (
-                    tags['drone-dji:GpsLatitude'] ||
-                    tags.GpsLatitude
-                ) {
+    longitude = getGPSCoordinate(
+        tags.GPSLongitude,
+        tags.GPSLongitudeRef
+    );
 
-                    const rawLat =
-                        tags['drone-dji:GpsLatitude'] ||
-                        tags.GpsLatitude;
+    console.log('GPS EXIF detectado.');
 
-                    const rawLon =
-                        tags['drone-dji:GpsLongitude'] ||
-                        tags.GpsLongitude;
+}
 
-                    latitude = parseFloat(
-                        rawLat.description || rawLat.value || rawLat
-                    );
+// GPS XMP de DJI como alternativa
 
-                    longitude = parseFloat(
-                        rawLon.description || rawLon.value || rawLon
-                    );
+else {
 
-                    console.log('GPS DJI encontrado.');
+    const rawLat =
+        tags['drone-dji:GpsLatitude'] ||
+        tags.GpsLatitude;
 
-                }
+    const rawLon =
+        tags['drone-dji:GpsLongitude'] ||
+        tags.GpsLongitude;
 
-                // Verificar coordenadas
+    if (rawLat && rawLon) {
 
-                if (
-                    latitude === null ||
-                    longitude === null ||
-                    !Number.isFinite(latitude) ||
-                    !Number.isFinite(longitude)
-                ) {
+        latitude = parseFloat(
+            rawLat.description || rawLat.value || rawLat
+        );
 
-                    console.warn(
-                        'No se encontraron coordenadas GPS válidas:',
-                        photo
-                    );
+        longitude = parseFloat(
+            rawLon.description || rawLon.value || rawLon
+        );
 
-                    continue;
-                }
+        console.log('GPS DJI encontrado.');
+    }
+}
 
-                console.log('GPS:', latitude, longitude);
+// Validar coordenadas
+
+if (
+    latitude === null ||
+    longitude === null ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    Math.abs(latitude) > 90 ||
+    Math.abs(longitude) > 180
+) {
+
+    console.warn(
+        'Coordenadas GPS inválidas:',
+        latitude,
+        longitude
+    );
+
+    continue;
+}
+
+// Mostrar coordenadas finales
+
+console.log('==============================');
+console.log('FOTOGRAFÍA:', photo);
+console.log('LATITUD FINAL:', latitude);
+console.log('LONGITUD FINAL:', longitude);
+console.log('==============================');
 
                 // =====================================
                 // 6. CREAR MARCADOR
