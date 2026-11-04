@@ -1,207 +1,66 @@
-<!DOCTYPE html>    <html lang="es">    
-<head>    
-    <meta charset="UTF-8">    
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">    
-    <title>World Map</title>    
-    <!-- Leaflet CSS -->    
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <style>    
-    * {    
-        margin: 0;    
-        padding: 0;    
-        box-sizing: border-box;    
-    }    
 
-    html, body {    
-        width: 100%;    
-        height: 100%;    
-        overflow: hidden;    
-    }    
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beyond the Map</title>
 
-    #map {    
-        width: 100%;    
-        height: 100vh;    
-        background: #a9d6ed;    
-    }    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 
-    .leaflet-container {    
-        background: #a9d6ed;    
-    }    
-</style>
-
-</head>    
-<body>    
-    <div id="map"></div>    
-
-<!-- Leaflet JS -->    
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>    
-
-<!-- NUEVA LIBRERÍA REEMPLAZO: ExifReader (Inmune a fallos de carga globales en GitHub) -->    
-<script src="https://cdn.jsdelivr.net/npm/exifreader@4.25.0/dist/exif-reader.js"></script>
-
-<script>    
-    // Inicializar mapa    
-    const map = L.map("map", {    
-        center:[20,0],    
-        zoom: 2,    
-        minZoom: 2,    
-        maxZoom: 10,    
-        worldCopyJump: true,    
-        zoomControl: true    
-    });    
-
-    // Estilo de países    
-    const countryStyle = {    
-        fillColor: "#f4f5f5",    
-        fillOpacity: 1,    
-        color: "#a0aab0",    
-        weight: 0.8    
-    };    
-
-    // Cargar fronteras mundiales    
-    fetch("https://githubusercontent.com")    
-    .then(response => {    
-        if (!response.ok) throw new Error("No se pudieron cargar los países");    
-        return response.json();    
-    })    
-    .then(data => {    
-        const countries = L.geoJSON(data, {    
-            style: countryStyle,    
-            onEachFeature: function(feature, layer) {    
-                const name = feature.properties.ADMIN || feature.properties.name || "País desconocido";    
-                layer.bindPopup("<strong>" + name + "</strong>");    
-                layer.on("mouseover", function() {    
-                    layer.setStyle({ fillColor: "#d6e8f2", weight: 1.5 });    
-                });    
-                layer.on("mouseout", function() {    
-                    countries.resetStyle(layer);    
-                });    
-            }    
-        }).addTo(map);    
-
-        map.fitBounds(countries.getBounds());    
-    })    
-    .catch(error => {    
-        console.error("Error cargando el mapa:", error);    
-    });    
-</script>    
-
-<script>    
-    // Fotografías (Asegúrate de que la imagen esté en la misma carpeta que este HTML)    
-    const photos = [    
-        "DJI_0990.JPG",    
-    ];    
-
-    // Leer GPS y crear marcadores    
-    async function loadPhotosOnMap() {    
-        console.log("Iniciando carga de fotografías...");    
-
-        // Verificamos el nuevo objeto ExifReader
-        if (typeof ExifReader === 'undefined') {
-            console.error("La librería ExifReader no se cargó. Reintentando...");
-            setTimeout(loadPhotosOnMap, 1000);
-            return;
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        for (const photo of photos) {    
-            try {    
-                const response = await fetch(photo);    
-                if (!response.ok) {    
-                    throw new Error("Error descargando imagen (verifica que el archivo exista y uses un servidor local o GitHub): " + photo);    
-                }    
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
 
-                const buffer = await response.arrayBuffer();    
-                console.log("Imagen descargada con éxito:", photo);    
+        #map {
+            width: 100%;
+            height: 100vh;
+            background: #a9d6ed;
+        }
 
-                // ExifReader procesa directamente el buffer binario
-                const tags = ExifReader.load(buffer);
-                console.log("Metadatos procesados por ExifReader:", tags);    
+        .leaflet-container {
+            background: #a9d6ed;
+        }
 
-                let latitude = null;
-                let longitude = null;
+        #debug-console {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            background: black;
+            color: white;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-y: auto;
+            z-index: 9999;
+            padding: 10px;
+        }
+    </style>
+</head>
 
-                // 1. Intentar obtener coordenadas del formato estandarizado que calcula la librería
-                if (tags['GPSLatitude'] && tags['GPSLongitude']) {
-                    latitude = tags['GPSLatitude'].description;
-                    longitude = tags['GPSLongitude'].description;
-                } 
-                // 2. Si es nulo, raspar de forma agresiva las etiquetas XMP nativas del DJI Mini 3
-                else if (tags['drone-dji:GpsLatitude'] || tags['GpsLatitude']) {
-                    const rawLat = tags['drone-dji:GpsLatitude'] || tags['GpsLatitude'];
-                    const rawLon = tags['drone-dji:GpsLongitude'] || tags['GpsLongitude'];
-                    latitude = parseFloat(rawLat.description || rawLat);
-                    longitude = parseFloat(rawLon.description || rawLon);
-                    console.log("Coordenadas recuperadas desde el perfil de vuelo XMP de DJI.");
-                }
+<body>
 
-                if (latitude == null || longitude == null) {    
-                    console.warn("La fotografía DJI Mini 3 no contiene coordenadas válidas en sus bloques:", photo);    
-                    continue;    
-                }    
+<div id="map"></div>
 
-                // Crear marcador en el mapa    
-                const marker = L.marker([latitude, longitude]).addTo(map);    
+<div id="debug-console"></div>
 
-                // Ventana emergente con la imagen    
-                marker.bindPopup(`    
-                    <div style="width:220px">    
-                        <img src="${photo}" style="width:100%; border-radius:8px; display:block;">    
-                        <p style="margin-top:8px; font-family:sans-serif; font-size:12px;">    
-                            ${photo.split("/").pop()}    
-                        </p>    
-                    </div>    
-                `);    
-
-                console.log("¡Marcador creado exitosamente en!", latitude, longitude);    
-
-            } catch (error) {    
-                console.error("Error procesando la foto:", photo, error);    
-            }    
-        }    
-    }    
-
-    // Ejecutar cuando el DOM esté listo
-    window.addEventListener('DOMContentLoaded', () => {
-        loadPhotosOnMap();    
-    });
-</script>
-
-<div id="debug-console" style="position:fixed;bottom:0;left:0;width:100%;height:30%;background:black;color:white;font-family:monospace;font-size:12px;overflow-y:auto;z-index:9999;padding:10px;box-sizing:border-box;"></div>  
+<!-- SISTEMA DE DEPURACIÓN -->
 <script>
     const logDiv = document.getElementById('debug-console');
 
-    const originalLog = console.log;
-    const originalWarn = console.warn;
-    const originalError = console.error;
-
-    function formatMessage(value) {
-        if (value instanceof Error) {
-            return value.stack || value.message;
-        }
-
-        if (value === null) return "null";
-        if (value === undefined) return "undefined";
-
-        if (typeof value === 'object') {
-            try {
-                return JSON.stringify(value, null, 2);
-            } catch (error) {
-                return String(value);
-            }
-        }
-
-        if (typeof value === 'function') {
-            return value.toString();
-        }
-
-        return String(value);
-    }
-
     function appendLog(type, args) {
-        const message = Array.from(args)
-            .map(formatMessage)
-            .join(' ');
-
         const line = document.createElement('div');
 
         line.style.borderBottom = '1px solid #444';
@@ -209,53 +68,313 @@
         line.style.whiteSpace = 'pre-wrap';
         line.style.overflowWrap = 'anywhere';
 
-        const title = document.createElement('strong');
-        title.textContent = type.toUpperCase() + ': ';
+        const message = Array.from(args).map(value => {
+            if (value instanceof Error) {
+                return value.stack || value.message;
+            }
 
-        const content = document.createElement('span');
-        content.textContent = message;
+            if (typeof value === 'object' && value !== null) {
+                try {
+                    return JSON.stringify(value, null, 2);
+                } catch (e) {
+                    return String(value);
+                }
+            }
 
-        line.appendChild(title);
-        line.appendChild(content);
+            return String(value);
+        }).join(' ');
+
+        line.textContent = type + ': ' + message;
 
         logDiv.appendChild(line);
         logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    console.log = function(...args) {
-        originalLog.apply(console, args);
-        appendLog('LOG', args);
-    };
+    ['log', 'warn', 'error'].forEach(type => {
+        const original = console[type];
 
-    console.warn = function(...args) {
-        originalWarn.apply(console, args);
-        appendLog('WARNING', args);
-    };
-
-    console.error = function(...args) {
-        originalError.apply(console, args);
-        appendLog('ERROR', args);
-    };
+        console[type] = function(...args) {
+            original.apply(console, args);
+            appendLog(type.toUpperCase(), args);
+        };
+    });
 
     window.onerror = function(msg, url, line, column, error) {
         appendLog('JAVASCRIPT ERROR', [
             msg,
-            'Archivo:', url,
-            'Línea:', line,
-            'Columna:', column,
+            'Línea: ' + line,
+            'Columna: ' + column,
             error || ''
         ]);
     };
 
-    window.addEventListener('unhandledrejection', function(event) {
-        appendLog('PROMISE ERROR', [
-            'Error en promesa:',
-            event.reason
-        ]);
+    window.addEventListener('unhandledrejection', event => {
+        console.error('Error en promesa:', event.reason);
     });
 
-    console.log('Sistema de depuración iniciado correctamente.');
+    console.log('Sistema de depuración iniciado.');
 </script>
 
-</body>    
+<!-- LIBRERÍAS -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/exifreader@4.25.0/dist/exif-reader.js"></script>
+
+<script>
+
+    // =====================================
+    // 1. VERIFICAR LIBRERÍAS
+    // =====================================
+
+    if (typeof window.L === 'undefined') {
+        console.error('ERROR: Leaflet no se pudo cargar.');
+        throw new Error('Leaflet L no está definido.');
+    }
+
+    console.log('Leaflet cargado correctamente:', window.L.version);
+
+    if (typeof window.ExifReader === 'undefined') {
+        console.error('ERROR: ExifReader no se pudo cargar.');
+        throw new Error('ExifReader no está definido.');
+    }
+
+    console.log('ExifReader cargado correctamente.');
+
+    // =====================================
+    // 2. INICIALIZAR MAPA
+    // =====================================
+
+    const map = window.L.map('map', {
+        center: [20, 0],
+        zoom: 2,
+        minZoom: 2,
+        maxZoom: 10,
+        worldCopyJump: true,
+        zoomControl: true
+    });
+
+    const countryStyle = {
+        fillColor: '#f4f5f5',
+        fillOpacity: 1,
+        color: '#a0aab0',
+        weight: 0.8
+    };
+
+    // =====================================
+    // 3. CARGAR PAÍSES
+    // =====================================
+
+    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Error descargando fronteras: ' + response.status);
+        }
+
+        return response.json();
+    })
+
+    .then(data => {
+
+        const countries = window.L.geoJSON(data, {
+
+            style: countryStyle,
+
+            onEachFeature: function(feature, layer) {
+
+                const name =
+                    feature.properties.ADMIN ||
+                    feature.properties.name ||
+                    'País desconocido';
+
+                layer.bindPopup('<strong>' + name + '</strong>');
+
+                layer.on('mouseover', function() {
+                    layer.setStyle({
+                        fillColor: '#d6e8f2',
+                        weight: 1.5
+                    });
+                });
+
+                layer.on('mouseout', function() {
+                    countries.resetStyle(layer);
+                });
+            }
+
+        }).addTo(map);
+
+        map.fitBounds(countries.getBounds());
+
+        console.log('Países cargados correctamente.');
+
+    })
+
+    .catch(error => {
+        console.error('Error cargando países:', error);
+    });
+
+
+    // =====================================
+    // 4. FOTOGRAFÍAS
+    // =====================================
+
+    const photos = [
+        'DJI_0990.JPG'
+    ];
+
+
+    // =====================================
+    // 5. LEER METADATOS GPS
+    // =====================================
+
+    async function loadPhotosOnMap() {
+
+        console.log('Iniciando carga de fotografías...');
+
+        for (const photo of photos) {
+
+            try {
+
+                console.log('Procesando:', photo);
+
+                const response = await fetch(photo);
+
+                if (!response.ok) {
+                    throw new Error(
+                        'No se pudo descargar la fotografía: ' + response.status
+                    );
+                }
+
+                const buffer = await response.arrayBuffer();
+
+                console.log('Imagen descargada:', photo);
+
+                const tags = ExifReader.load(buffer);
+
+                console.log('Metadatos EXIF:', tags);
+
+                let latitude = null;
+                let longitude = null;
+
+                // GPS estándar
+
+                if (tags.GPSLatitude && tags.GPSLongitude) {
+
+                    latitude = Number(tags.GPSLatitude.description);
+                    longitude = Number(tags.GPSLongitude.description);
+
+                }
+
+                // GPS XMP de DJI
+
+                else if (
+                    tags['drone-dji:GpsLatitude'] ||
+                    tags.GpsLatitude
+                ) {
+
+                    const rawLat =
+                        tags['drone-dji:GpsLatitude'] ||
+                        tags.GpsLatitude;
+
+                    const rawLon =
+                        tags['drone-dji:GpsLongitude'] ||
+                        tags.GpsLongitude;
+
+                    latitude = parseFloat(
+                        rawLat.description || rawLat.value || rawLat
+                    );
+
+                    longitude = parseFloat(
+                        rawLon.description || rawLon.value || rawLon
+                    );
+
+                    console.log('GPS DJI encontrado.');
+
+                }
+
+                // Verificar coordenadas
+
+                if (
+                    latitude === null ||
+                    longitude === null ||
+                    !Number.isFinite(latitude) ||
+                    !Number.isFinite(longitude)
+                ) {
+
+                    console.warn(
+                        'No se encontraron coordenadas GPS válidas:',
+                        photo
+                    );
+
+                    continue;
+                }
+
+                console.log('GPS:', latitude, longitude);
+
+                // =====================================
+                // 6. CREAR MARCADOR
+                // =====================================
+
+                if (typeof window.L === 'undefined') {
+                    throw new Error('Leaflet dejó de estar disponible.');
+                }
+
+                const marker = window.L.marker([
+                    latitude,
+                    longitude
+                ]).addTo(map);
+
+                // =====================================
+                // 7. POPUP CON FOTOGRAFÍA
+                // =====================================
+
+                marker.bindPopup(`
+                    <div style="width:220px">
+
+                        <img
+                            src="${photo}"
+                            style="width:100%; border-radius:8px; display:block;"
+                        >
+
+                        <p style="
+                            margin-top:8px;
+                            font-family:sans-serif;
+                            font-size:12px;
+                        ">
+                            ${photo.split('/').pop()}
+                        </p>
+
+                    </div>
+                `);
+
+                console.log(
+                    'MARCADOR CREADO:',
+                    latitude,
+                    longitude
+                );
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    'Error procesando la foto:',
+                    photo,
+                    error
+                );
+
+            }
+        }
+    }
+
+
+    // =====================================
+    // 8. INICIAR PROCESAMIENTO
+    // =====================================
+
+    loadPhotosOnMap();
+
+</script>
+
+</body>
 </html>
