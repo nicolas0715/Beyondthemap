@@ -677,6 +677,15 @@ function colorCountries() {
 
 const tags = ExifReader.load(buffer);
 
+                // Obtener fecha y autor de la fotografía
+
+const dateTime = tags.DateTime?.description || 'Fecha no disponible';
+
+const artist = tags.Artist?.description || 'Autor desconocido';
+
+console.log('FECHA:', dateTime);
+console.log('AUTOR:', artist);
+
 console.log('CAMPOS DE UBICACIÓN:', {
     GPSLatitude: tags.GPSLatitude,
     GPSLongitude: tags.GPSLongitude,
@@ -781,49 +790,54 @@ console.log('==============================');
 identifyCountry(latitude, longitude);
 
                 // =====================================
-                // 7. POPUP CON FOTOGRAFÍA
-                // =====================================
+// 7. POPUP CON FOTOGRAFÍA Y METADATOS
+// =====================================
 
-                marker.bindPopup(`
-                    <div style="width:220px">
+marker.bindPopup(`
+    <div style="
+        width:220px;
+        font-family:sans-serif;
+    ">
 
-                        <img
-                            src="${photo}"
-                            style="width:100%; border-radius:8px; display:block;"
-                        >
+        <img
+            src="${photo}"
+            style="
+                width:100%;
+                border-radius:8px;
+                display:block;
+            "
+        >
 
-                        <p style="
-                            margin-top:8px;
-                            font-family:sans-serif;
-                            font-size:12px;
-                        ">
-                            ${photo.split('/').pop()}
-                        </p>
+        <div style="
+            margin-top:10px;
+            font-size:12px;
+            line-height:1.6;
+        ">
 
-                    </div>
-                `);
+            <p>
+                <strong>Fotografía:</strong><br>
+                ${photo.split('/').pop()}
+            </p>
 
-                console.log(
-                    'MARCADOR CREADO:',
-                    latitude,
-                    longitude
-                );
+            <p>
+                <strong>Fecha:</strong><br>
+                ${dateTime}
+            </p>
 
-            }
+            <p>
+                <strong>Autor:</strong><br>
+                ${artist}
+            </p>
 
-            catch (error) {
+            <p>
+                <strong>Ubicación GPS:</strong><br>
+                ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
+            </p>
 
-                console.error(
-                    'Error procesando la foto:',
-                    photo,
-                    error
-                );
+        </div>
 
-            }
-        }
-        colorCountries();
-    }
-
+    </div>
+`);
 
     // =====================================
     // 8. INICIAR PROCESAMIENTO
