@@ -118,6 +118,8 @@
 <!-- LIBRERÍAS -->
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@7.2.0/turf.min.js"></script>
+    
 <script src="https://cdn.jsdelivr.net/npm/exifreader@4.25.0/dist/exif-reader.js"></script>
 
 <script>
@@ -244,65 +246,389 @@ function getGPSCoordinate(tag, reference) {
         zoomControl: true
     });
 
-    const countryStyle = {
-        fillColor: '#f4f5f5',
+    // =====================================
+// SISTEMA DE COLORES DE PAÍSES
+// =====================================
+
+const baseColor = '#f4f5f5';
+
+const availableColors = [
+    '#e74c3c', // Rojo
+    '#f1c40f', // Amarillo
+    '#2ecc71', // Verde
+    '#5dade2', // Celeste
+    '#e67e22'  // Naranja
+];
+
+let countriesLayer = null;
+
+let countryFeatures = [];
+
+const countriesWithPhotos = new Set();
+
+const countryColors = new Map();
+
+function getCountryStyle(feature) {
+
+    const id = feature.__countryId;
+
+    return {
+        fillColor: countryColors.get(id) || baseColor,
         fillOpacity: 1,
         color: '#a0aab0',
         weight: 0.8
     };
+}
+    };
+// =====================================
+// 3. CARGAR PAÍSES
+// =====================================
 
-    // =====================================
-    // 3. CARGAR PAÍSES
-    // =====================================
+const countriesReady = fetch(
+    'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
+)
 
-    fetch('https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson')
+.then(response => {
 
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Error descargando fronteras: ' + response.status);
+    if (!response.ok) {
+        throw new Error(
+            'Error descargando fronteras: ' + response.status
+        );
+    }
+
+    return response.json();
+
+})
+
+.then(data => {
+
+    // Asignar identificador a cada país
+
+    data.features.forEach((feature, index) => {
+        feature.__countryId = index;
+    });
+
+    countryFeatures = data.features;
+
+    countriesLayer = window.L.geoJSON(data, {
+
+        style: getCountryStyle,
+
+        onEachFeature: function(feature, layer) {
+
+            const name =
+                feature.properties.ADMIN ||
+                feature.properties.name ||
+                'País desconocido';
+
+            layer.bindPopup(
+                '<strong>' + name + '</strong>'
+            );
+
+            layer.on('mouseover', function() {
+
+                layer.setStyle({
+                    fillColor: '#d6e8f2',
+                    weight: 1.5
+                });
+
+                layer.bringToFront();
+            });
+
+            layer.on('mouseout', function() {
+
+                layer.setStyle(
+                    getCountryStyle(feature)
+                );
+
+            });
+
         }
 
-        return response.json();
-    })
+    }).addTo(map);
 
-    .then(data => {
+    map.fitBounds(countriesLayer.getBounds());
 
-        const countries = window.L.geoJSON(data, {
+    console.log('Países cargados correctamente.');
 
-            style: countryStyle,
+})
 
-            onEachFeature: function(feature, layer) {
+.catch(error => {
 
-                const name =
-                    feature.properties.ADMIN ||
-                    feature.properties.name ||
-                    'País desconocido';
+    console.error('Error cargando países:', error);
 
-                layer.bindPopup('<strong>' + name + '</strong>');
+    throw error;
 
-                layer.on('mouseover', function() {
-                    layer.setStyle({
-                        fillColor: '#d6e8f2',
-                        weight: 1.5
-                    });
-                });
+});
 
-                layer.on('mouseout', function() {
-                    countries.resetStyle(layer);
-                });
+
+// =====================================
+// 4. IDENTIFICAR PAÍSES CON FOTOGRAFÍAS
+// =====================================
+
+function identifyCountry(latitude, longitude) {
+
+    const point = turf.point([
+        longitude,
+        latitude
+    ]);
+
+    for (const feature of countryFeatures) {
+
+        try {
+
+            if (
+                turf.booleanPointInPolygon(
+                    point,
+                    feature
+                )
+            ) {
+
+                const id = feature.__countryId;
+
+                countriesWithPhotos.add(id);
+
+                console.log(
+                    'Fotografía ubicada en:',
+                    feature.properties.ADMIN
+                );
+
+                return id;
             }
 
-        }).addTo(map);
+        } catch (error) {
 
-        map.fitBounds(countries.getBounds());
+            console.warn(
+                'Error identificando país:',
+                error
+            );
 
-        console.log('Países cargados correctamente.');
+        }
 
-    })
+    }
 
-    .catch(error => {
-        console.error('Error cargando países:', error);
+    console.warn(
+        'No se encontró un país para:',
+        latitude,
+        longitude
+    );
+
+    return null;
+}
+
+    // =====================================
+// 5. COLOREAR PAÍSES
+// =====================================
+
+function colorCountries() {
+
+    console.log('Iniciando coloreado de países...');
+
+    const activeCountries = countryFeatures.filter(
+        feature =>
+            countriesWithPhotos.has(feature.__countryId)
+    );
+
+    // Crear conexiones entre países vecinos
+
+    const neighbors = new Map();
+
+    activeCountries.forEach(feature => {
+
+        neighbors.set(
+            feature.__countryId,
+            new Set()
+        );
+
     });
+
+    // Comprobar fronteras compartidas
+
+    for (let i = 0; i < activeCountries.length; i++) {
+
+        for (let j = i + 1; j < activeCountries.length; j++) {
+
+            const countryA = activeCountries[i];
+            const countryB = activeCountries[j];
+
+            try {
+
+                const touching = turf.booleanTouches(
+                    countryA,
+                    countryB
+                );
+
+                if (touching) {
+
+                    const idA = countryA.__countryId;
+                    const idB = countryB.__countryId;
+
+                    neighbors.get(idA).add(idB);
+                    neighbors.get(idB).add(idA);
+
+                }
+
+            } catch (error) {
+
+                console.warn(
+                    'Error comprobando fronteras:',
+                    error
+                );
+
+            }
+
+        }
+
+    }
+
+    // Mezclar aleatoriamente los colores
+
+    function shuffle(array) {
+
+        const result = [...array];
+
+        for (let i = result.length - 1; i > 0; i--) {
+
+            const j = Math.floor(
+                Math.random() * (i + 1)
+            );
+
+            [result[i], result[j]] =
+                [result[j], result[i]];
+
+        }
+
+        return result;
+    }
+
+    // Algoritmo de coloreado con backtracking
+
+    const assignments = new Map();
+
+    function assignColors() {
+
+        if (assignments.size === activeCountries.length) {
+            return true;
+        }
+
+        // Elegir el país con más vecinos ya coloreados
+
+        let selected = null;
+        let maxSaturation = -1;
+        let maxDegree = -1;
+
+        for (const feature of activeCountries) {
+
+            const id = feature.__countryId;
+
+            if (assignments.has(id)) continue;
+
+            const adjacent = neighbors.get(id);
+
+            const saturation = new Set(
+                [...adjacent].map(
+                    neighborId => assignments.get(neighborId)
+                ).filter(Boolean)
+            ).size;
+
+            const degree = adjacent.size;
+
+            if (
+                saturation > maxSaturation ||
+                (
+                    saturation === maxSaturation &&
+                    degree > maxDegree
+                )
+            ) {
+
+                selected = feature;
+                maxSaturation = saturation;
+                maxDegree = degree;
+
+            }
+
+        }
+
+        const selectedId = selected.__countryId;
+
+        // Obtener colores utilizados por sus vecinos
+
+        const forbiddenColors = new Set(
+            [...neighbors.get(selectedId)].map(
+                id => assignments.get(id)
+            ).filter(Boolean)
+        );
+
+        // Probar colores disponibles en orden aleatorio
+
+        const available = shuffle(
+            availableColors.filter(
+                color => !forbiddenColors.has(color)
+            )
+        );
+
+        for (const color of available) {
+
+            assignments.set(selectedId, color);
+
+            if (assignColors()) {
+                return true;
+            }
+
+            assignments.delete(selectedId);
+
+        }
+
+        return false;
+    }
+
+    const success = assignColors();
+
+    if (!success) {
+
+        console.error(
+            'No se pudo encontrar una combinación de colores.'
+        );
+
+        return;
+    }
+
+    // Guardar y aplicar los colores
+
+    countryColors.clear();
+
+    assignments.forEach((color, id) => {
+
+        countryColors.set(id, color);
+
+    });
+
+    countriesLayer.eachLayer(layer => {
+
+        layer.setStyle(
+            getCountryStyle(layer.feature)
+        );
+
+    });
+
+    console.log(
+        'Países coloreados correctamente:',
+        assignments.size
+    );
+
+    activeCountries.forEach(feature => {
+
+        const id = feature.__countryId;
+
+        console.log(
+            feature.properties.ADMIN,
+            '=>',
+            assignments.get(id)
+        );
+
+    });
+
+}
 
 
     // =====================================
@@ -327,6 +653,8 @@ function getGPSCoordinate(tag, reference) {
     async function loadPhotosOnMap() {
 
         console.log('Iniciando carga de fotografías...');
+
+        await countriesReady;
 
         for (const photo of photos) {
 
@@ -440,6 +768,10 @@ console.log('==============================');
                     longitude
                 ]).addTo(map);
 
+// Identificar el país del marcador
+
+identifyCountry(latitude, longitude);
+
                 // =====================================
                 // 7. POPUP CON FOTOGRAFÍA
                 // =====================================
@@ -481,6 +813,7 @@ console.log('==============================');
 
             }
         }
+        colorCountries();
     }
 
 
