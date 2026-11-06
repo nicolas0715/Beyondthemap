@@ -793,6 +793,7 @@ identifyCountry(latitude, longitude);
 // 7. POPUP CON FOTOGRAFÍA Y METADATOS
 // =====================================
 
+
 marker.bindPopup(`
     <div style="
         width:220px;
@@ -838,6 +839,28 @@ marker.bindPopup(`
 
     </div>
 `);
+
+                console.log(
+                    'MARCADOR CREADO:',
+                    latitude,
+                    longitude
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Error procesando la foto:',
+                    photo,
+                    error
+                );
+
+            }
+
+        }
+
+        colorCountries();
+
+    }
 
     // =====================================
     // 8. INICIAR PROCESAMIENTO
