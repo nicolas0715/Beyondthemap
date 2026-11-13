@@ -679,9 +679,37 @@ const tags = ExifReader.load(buffer);
 
                 // Obtener fecha y autor de la fotografía
 
-const dateTime = tags.DateTime?.description || 'Fecha no disponible';
+// Obtener fecha y autor de la fotografía
 
-const artist = tags.Artist?.description || 'Autor desconocido';
+const rawDate =
+    tags.DateTimeOriginal?.description ||
+    tags.DateTime?.description ||
+    tags.CreateDate?.description ||
+    '';
+
+let dateOnly = 'Fecha no disponible';
+
+if (rawDate) {
+
+    const date = rawDate.split(/[ T]/)[0];
+
+    // Convertir YYYY:MM:DD a DD/MM/YYYY
+
+    const match = date.match(
+        /^(\d{4})[:\-](\d{2})[:\-](\d{2})$/
+    );
+
+    if (match) {
+        dateOnly = `${match[3]}/${match[2]}/${match[1]}`;
+    }
+}
+
+const artist =
+    tags.Artist?.description?.trim() ||
+    'Autor desconocido';
+
+console.log('FECHA:', dateOnly);
+console.log('AUTOR:', artist);
 
 console.log('FECHA:', dateTime);
 console.log('AUTOR:', artist);
@@ -811,28 +839,18 @@ marker.bindPopup(`
 
         <div style="
             margin-top:10px;
-            font-size:12px;
+            font-size:13px;
             line-height:1.6;
         ">
-
-            <p>
-                <strong>Fotografía:</strong><br>
-                ${photo.split('/').pop()}
-            </p>
-
-            <p>
-                <strong>Fecha:</strong><br>
-                ${dateTime}
-            </p>
 
             <p>
                 <strong>Autor:</strong><br>
                 ${artist}
             </p>
 
-            <p>
-                <strong>Ubicación GPS:</strong><br>
-                ${latitude.toFixed(6)}, ${longitude.toFixed(6)}
+            <p style="margin-top:10px;">
+                <strong>Fecha:</strong><br>
+                ${dateOnly}
             </p>
 
         </div>
